@@ -9,103 +9,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s.h"
-#include "ws2811.h"
-#include "setup.h"
-#include "efects.h"
+
 
 /* Private Variables -----------------------------------------------------------*/
-uint16_t delay_ms = 0;
-uint16_t audioSensibility = 25;
-float adcValue = 0;
-bool recordFactoryPattern_flag = 0;
-bool newEEPROMRecord_flag = 0;
-bool writeNewMemory = 0;
-bool gainMode = 0;
-
-uint8_t sampleAdcTimer = 0;
-uint16_t newPeakTimer = 0;
-
-uint8_t arrayRed[10];
-uint8_t arrayGreen[10];
-uint8_t arrayBlue[10];
-
-auto_t	 autoMode = 0;
-memory_t memory = 0;
-power_t  power = on;
-memory_model currentMemory;
-
-
-
-extern bool recModeActive;
-extern uint16_t timeOutRecMode;
-extern uint8_t recRepeatCounter;
-extern float audioMuti;
-float adcBufferMaxValue = 0;
-extern bool sensibility_flag;
-extern bool flagButton;
-extern bool flagPulse;
-
-
-/* Private function prototypes -----------------------------------------------*/
-void writeEEPROM(void);
-void readEEPROM(void);
-void readADC(void);
-
-void main(void)
-{
-	peripheralsSetup();
-	
-	readEEPROM();
-	
-	GPIO_WriteHigh(OUT_RED);
-	GPIO_WriteHigh(OUT_GREEN);
-	GPIO_WriteHigh(OUT_BLUE);
-
-  /* Infinite loop */
-  while (1)
-  {
-		if(GPIO_ReadInputPin(IN_AUX))
-		{
-			if(flagPulse == 1)
-			{
-				if(memory < M7) memory++;
-				else memory = M1;
-				newEEPROMRecord_flag = 1;	
-				
-				flagPulse = 0;
-			}
-		}
-		
-		if(GPIO_ReadInputPin(IN_BTN))
-		{
-			if(flagButton == 1)
-			{
-				if(memory < M7) memory++;
-				else memory = M1;
-				newEEPROMRecord_flag = 1;	
-			
-				flagButton = 0;
-			}
-		}	
-		
-		if(newEEPROMRecord_flag)writeEEPROM(); //grava novo efeito na memoria
-		else if(memory != custom) readEEPROM(); //busca na memoria efeitos das memorias gravadas
-		
-		if(recordFactoryPattern_flag)writeEEPROM(); //volta ao padrao de fabrica
-
-		if(memory == custom)autoMode = autoOff; //desliga o auto caso não use memoria
-		
-		if(power == on)
-		{
-			if((currentMemory.efectMemory != audio1) && (currentMemory.efectMemory != audio2))GPIO_WriteLow(LED_AUDIO);
-			else GPIO_WriteHigh(LED_AUDIO);
-		}
-		else
-		{
-			GPIO_WriteLow(LED_AUDIO);
-		}
-		
-		runEfect(currentMemory.efectMemory);
+uiemory);
 		
 		delay(1);
   }
@@ -292,60 +199,6 @@ void readADC(void)
 	if(adcValue > 420)adcValue = adcValue - 420;
 	else adcValue = 0;
 
-	if(sampleAdcTimer >= 250)//amostragem do buffer a cada 250ms
-	{
-		sampleAdcTimer = 0;
-		adcBuffer[fifoCounter] = adcValue;
-		if(fifoCounter < 49) fifoCounter++;
-		else fifoCounter = 0;	
-	}
-	
-	audioMuti = (adcValue / adcBufferMaxValue);
-	
-	if(audioMuti > 1.5)newPeakTimer = 10000;//caso sinal microfone maior que 50% do sinal adcBufferMaxValue ele faz atualizar o adcBufferMaxValue antes do tempo normal
-	
-	//liminta o audioMuti entre 0 e 1
-	if(audioMuti > 1) audioMuti = 1; 
-	if(audioMuti < 0) audioMuti = 0;	
-	
-	//verifica o buffer para carregar o maior valor em adcBufferMaxValue
-	if(newPeakTimer >= 10000)
-	{
-		newPeakTimer = 0;
-		adcBufferMaxValue = 0;
-		
-		for(i = 0; i < 49; i++)
-		{
-			if(adcBufferMaxValue < adcBuffer[i])adcBufferMaxValue = adcBuffer[i];
-		}
-	}
-
-	if(power == on)
-	{
-		if(sensibility_flag)//faz o led do audio piscar quando o maximo/minimo é atingido
-		{
-			if(gainMode == 1)
-			{
-				GPIO_WriteHigh(OUT_GAIN);
-				blinkLedTime = 200;			
-			}
-			
-			else 
-			{
-				GPIO_WriteLow(OUT_GAIN);
-				blinkLedTime = 100;
-			}
-	
-			for(y = 0; y < 4; y++)
-			{
-				GPIO_WriteReverse(LED_AUDIO);		
-				delay(blinkLedTime);
-				GPIO_WriteReverse(LED_AUDIO);	
-				delay(blinkLedTime);				
-			}
-			sensibility_flag = 0;
-		}
-	}
 	else
 	{
 		GPIO_WriteLow(LED_AUDIO);
